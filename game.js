@@ -1001,8 +1001,8 @@ function getSpecialBattleTheme(playerName, enemyName) {
         // Drew vs Ayako - custom theme
         { chars: ['Drew', 'Ayako'], theme: 'Can You Feel It_.mp3' },
 
-        // Naïveté - Drew vs Daphne (special theme)
-        { chars: ['Drew', 'Daphne'], theme: 'Naïveté.mp3' },
+        // Fallen Angel - Drew vs Daphne (special theme)
+        { chars: ['Drew', 'Daphne'], theme: 'Fallen Angel.mp3' },
         
         // William special: William vs Penelope -> Ejected
         { chars: ['William', 'Penelope'], theme: 'Ejected.mp3' },
