@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNBROKEN</title>
+    <link rel="preload" href="sunlight.png" as="image">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Music-list special visuals for extras screen */
+        .music-item.purple-sparkle {
+            /* richer full purple background */
+            background: linear-gradient(180deg, rgba(128,0,128,0.14), rgba(88,0,88,0.10));
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+            transition: transform 220ms ease, box-shadow 220ms ease;
+            border: 1px solid rgba(200,100,255,0.18);
+            box-shadow: 0 8px 24px rgba(128,0,128,0.12), 0 0 18px rgba(255,200,255,0.06), inset 0 0 12px rgba(128,0,128,0.06);
+            border-radius: 8px;
+        }
+        .music-item.purple-sparkle:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(160,40,200,0.18), 0 0 28px rgba(255,200,255,0.12); }
+
+        /* animated sparkles: brighter, more visible and slightly faster */
+        .music-item.purple-sparkle::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 8% 18%, rgba(255,255,255,0.95) 0 2px, transparent 4px),
+                radial-gradient(circle at 82% 28%, rgba(255,230,255,0.92) 0 2px, transparent 4px),
+                radial-gradient(circle at 48% 68%, rgba(245,230,255,0.9) 0 2px, transparent 4px),
+                radial-gradient(circle at 30% 40%, rgba(200,160,255,0.6) 0 6px, transparent 10px);
+            background-size: 140% 140%;
+            mix-blend-mode: screen;
+            opacity: 0.0;
+            animation: sparkle-fade 1.9s linear infinite;
+            pointer-events: none;
+            transform: translateZ(0);
+            filter: drop-shadow(0 0 6px rgba(220,160,255,0.6));
+        }
+
+        /* add a fiery gold/purple outline glow using an extra pseudo element */
+        .music-item.purple-sparkle::before {
+            content: "";
+            position: absolute;
+            inset: -1.5px;
+            border-radius: 10px;
+            background: transparent;
+            pointer-events: none;
+            box-shadow: 0 0 12px rgba(160,60,240,0.9), 0 0 28px rgba(255,170,60,0.75);
+            mix-blend-mode: screen;
+            opacity: 0.9;
+            z-index: 0;
+        }
+
+        @keyframes sparkle-fade {
+            0% { opacity: 0; transform: translateY(0) scale(0.96); }
+            15% { opacity: 1; transform: translateY(-3px) scale(1.03); }
+            55% { opacity: 0.7; transform: translateY(2px) scale(1.01); }
+            100% { opacity: 0; transform: translateY(0) scale(0.96); }
+        }
+
+        /* half purple visual (left half purple, right half normal) */
+        .music-item.half-purple {
+            background: linear-gradient(90deg,
+                rgba(128,0,128,0.18) 0% 50%,
+                rgba(255,215,0,0.02) 50% 100%);
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+            transition: transform 220ms ease, box-shadow 220ms ease;
+            border-radius: 8px;
+            border: 1px solid rgba(160,50,200,0.12);
+            box-shadow: 0 6px 18px rgba(128,0,128,0.08);
+        }
+        .music-item.half-purple:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(160,60,200,0.12); }
+
+        /* make track text pop on purple items */
+        .music-item.purple-sparkle .track-name,
+        .music-item.half-purple .track-name {
+            display: inline-block;
+            padding-right: 0.4rem;
+            text-shadow: 0 0 8px rgba(128,0,128,0.9), 0 0 14px rgba(255,170,60,0.25);
+            font-weight: 800;
+            color: #FFF3FF;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ensure play button stays visible above pseudo-element */
+        .music-item .game-button { position: relative; z-index: 3; }
+    </style>
+</head>
+<body>
+    <!-- Loading overlay shown until CSS + JS modules finish loading -->
+    <div id="loading-overlay" aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;z-index:25000;pointer-events:auto;">
+        <div style="color:#FFD700;font-family: 'Orbitron', monospace;font-weight:900;font-size:clamp(1.2rem,5vw,2.4rem);letter-spacing:0.08em;">
+            LOADING
+        </div>
+    </div>
+
+    <div id="title-screen" class="screen active">
+        <div class="container" style="position:relative;">
+            <h1 class="title">
+                <span class="letter">U</span>
+                <span class="letter">N</span>
+                <span class="letter">B</span>
+                <span class="letter">R</span>
+                <span class="letter">O</span>
+                <span class="letter">K</span>
+                <span class="letter">E</span>
+                <span class="letter">N</span>
+            </h1>
+            <button id="start-game" class="game-button">ENTER THE VOID</button>
+            <div style="display:flex; gap:0.8rem; margin-top:1rem; flex-wrap:wrap; justify-content:center;">
+                <button id="characters-button" class="game-button" style="margin-top: 0;">CHARACTERS</button>
+                <button id="shop-button" class="game-button" style="margin-top: 0;">VISIT SHOP</button>
+                <button id="business-button" class="game-button" style="margin-top: 0;">ROLL</button>
+                <button id="extras-button" class="game-button" style="margin-top: 0;">EXTRAS</button>
+            </div>
+            <div id="credits-display-title" class="credits-display" style="margin-top: 1.5rem;">Credits: 0</div>
+
+            <!-- Update notice for title screen (positioned via CSS so it only shows on the title screen) -->
+            <div id="update-notice" aria-live="polite">
+                <div>Hey! This game was recently updated! If you haven't already, please reload the site using this button so the changes take effect!</div>
+                <div style="display:flex;gap:0.5rem;margin-top:0.45rem;justify-content:flex-end;">
+                    <button id="reload-site-btn" class="game-button" style="padding:0.4rem 0.6rem;font-size:0.78rem;min-width:160px;" onclick="location.reload();">RELOAD SITE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+  
+    <div id="character-select" class="screen">
+        <h2 class="screen-title">CHOOSE YOUR CHARACTER</h2>
+        <div class="character-grid">
+            <!-- Character cards will be dynamically generated -->
+        </div>
+    </div>
+
+    <div id="characters-screen" class="screen">
+        <h2 class="screen-title">CHARACTERS</h2>
+        <div id="characters-list" class="character-grid" style="padding:0.5rem;">
+            <!-- Character list generated by bio.js -->
+        </div>
+    </div>
+
+    <!-- Extras screen (for miscellaneous content that doesn't fit on title) -->
+    <div id="extras-screen" class="screen">
+        <h2 class="screen-title">EXTRAS</h2>
+        <div style="width:94%; max-width:1100px; display:flex; flex-direction:column; gap:0.6rem; align-items:center;">
+            <div style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <div class="screen-title" style="font-size:1rem;margin:0;">MUSIC LIST</div>
+                <div style="color:#FFA500;font-size:0.9rem;">(click play to preview)</div>
+            </div>
+
+            <div id="music-list" style="width:100%; background:rgba(255,215,0,0.03); border:1px solid rgba(255,215,0,0.08); border-radius:10px; padding:0.6rem; box-sizing:border-box; max-height:60vh; overflow:auto;">
+                <!-- Audio list populated statically here (excluded: UNBROKEN.mp3, You Can't Hold Onto Me Forever.mp3, WOXIC TASTE.mp3) -->
+                <!-- Forced-first pair: Anticipation (High) then Anticipation -->
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Anticipation</div>
+                    <div><button class="game-button play-music" data-src="Anticipation (4).mp3">PLAY</button></div>
+                </div>
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Anticipation (High)</div>
+                    <div><button class="game-button play-music" data-src="Anticipation (High).mp3">PLAY</button></div>
+                </div>
+                <div class="music-item purple-sparkle" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;" class="track-name">Anticipation (Luna Mix)</div>
+                    <div><button class="game-button play-music" data-src="Anticipation (Luna Mix).mp3">PLAY</button></div>
+                </div>
+
+                <!-- The remaining tracks are listed alphabetically -->
+
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">A Promise</div>
+                    <div><button class="game-button play-music" data-src="A Promise.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">A Reflection Of Mistakes</div>
+                    <div><button class="game-button play-music" data-src="A Reflection Of Mistakes.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Back Again</div>
+                    <div><button class="game-button play-music" data-src="Back Again.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Can You Feel It?</div>
+                    <div><button class="game-button play-music" data-src="Can You Feel It_.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Darkness Constricts Me</div>
+                    <div><button class="game-button play-music" data-src="Darkness Constricts Me.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Diagraphephobia</div>
+                    <div><button class="game-button play-music" data-src="Diagraphephobia.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Ejected</div>
+                    <div><button class="game-button play-music" data-src="Ejected.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Earthshot</div>
+                    <div><button class="game-button play-music" data-src="Earthshot.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Fallen Angel</div>
+                    <div><button class="game-button play-music" data-src="Fallen Angel.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">FAHHHH</div>
+                    <div><button class="game-button play-music" data-src="FAHHHH.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Freedom</div>
+                    <div><button class="game-button play-music" data-src="Freedom.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Genocides</div>
+                    <div><button class="game-button play-music" data-src="Genocides.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">House Arrest</div>
+                    <div><button class="game-button play-music" data-src="House Arrest.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Law Enforcement</div>
+                    <div><button class="game-button play-music" data-src="Law Enforcement.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Make Your Mark</div>
+                    <div><button class="game-button play-music" data-src="Make Your Mark.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item purple-sparkle" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;" class="track-name">Moonshine</div>
+                    <div><button class="game-button play-music" data-src="Moonshine.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item half-purple" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;" class="track-name">One Side In Two Different Coins</div>
+                    <div><button class="game-button play-music" data-src="One Side In Two Different Coins.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">RAVE</div>
+                    <div><button class="game-button play-music" data-src="RAVE.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Redemption</div>
+                    <div><button class="game-button play-music" data-src="Redemption.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Reset</div>
+                    <div><button class="game-button play-music" data-src="Reset.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Roommates</div>
+                    <div><button class="game-button play-music" data-src="Roommates.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item purple-sparkle" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;" class="track-name">Spare Them The Rod</div>
+                    <div><button class="game-button play-music" data-src="Spare Them The Rod (4).mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Spare Them The Rod (Alt)</div>
+                    <div><button class="game-button play-music" data-src="Spare Them The Rod (Alt).mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Stalker</div>
+                    <div><button class="game-button play-music" data-src="Stalker.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item purple-sparkle" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;" class="track-name">The Call Of The Moon</div>
+                    <div><button class="game-button play-music" data-src="The Call Of The Moon.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">TOXIC WASTE</div>
+                    <div><button class="game-button play-music" data-src="TOXIC WASTE.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Two Best Friends</div>
+                    <div><button class="game-button play-music" data-src="Two Best Friends.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">'Till The Void Do Us Part</div>
+                    <div><button class="game-button play-music" data-src="'Till The Void Do Us Part.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Winter Falls</div>
+                    <div><button class="game-button play-music" data-src="Winter Falls.mp3">PLAY</button></div>
+                </div>
+
+                <div class="music-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.45rem;border-bottom:1px dashed rgba(255,215,0,0.04);">
+                    <div style="color:#FFD700;">Who Dares To Shine So Bright</div>
+                    <div><button class="game-button play-music" data-src="Who Dares To Shine So Bright.mp3">PLAY</button></div>
+                </div>
+
+
+            </div>
+
+            <div style="display:flex;gap:0.6rem;margin-top:0.8rem;">
+                <button id="extras-back" class="game-button">BACK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="shop-screen" class="screen">
+        <h2 class="screen-title">THE VOID SHOP</h2>
+        <div id="credits-display" class="credits-display">Credits: 0</div>
+        <div class="shop-container">
+            <div class="shop-grid">
+                <div class="shop-item" data-character="penelope" data-price="100">
+                    <img src="penelope.png" alt="Penelope" class="shop-portrait">
+                    <h3>PENELOPE</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">100 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="mona" data-price="150">
+                    <img src="mona.png" alt="Mona" class="shop-portrait">
+                    <h3>MONA</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">150 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="terra" data-price="200">
+                    <img src="terra.png" alt="Terra" class="shop-portrait">
+                    <h3>TERRA</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">200 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="navia" data-price="180">
+                    <img src="navia.png" alt="Navia" class="shop-portrait">
+                    <h3>NAVIA</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">180 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="ginger" data-price="220">
+                    <img src="ginger.png" alt="Ginger" class="shop-portrait">
+                    <h3>GINGER</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">220 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="prime" data-price="300">
+                    <img src="prime.png" alt="Prime" class="shop-portrait">
+                    <h3>PRIME</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">300 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="daphne" data-price="250">
+                    <img src="daphne.png" alt="Daphne" class="shop-portrait">
+                    <h3>DAPHNE</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">250 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="seven" data-price="280">
+                    <img src="seven.png" alt="Seven" class="shop-portrait">
+                    <h3>SEVEN</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">280 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- Thirteen (Higher Plane) -->
+                <div class="shop-item" data-character="thirteen" data-price="900" data-higher-plane="true">
+                    <img src="thirteen.png" alt="Thirteen" class="shop-portrait">
+                    <h3>THIRTEEN</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+                <div class="shop-item" data-character="echo" data-price="200">
+                    <img src="echo.png" alt="Echo" class="shop-portrait">
+                    <h3>ECHO</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">200 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- C'est La Vie added to shop -->
+                <div class="shop-item" data-character="cestlavie" data-price="195">
+                    <img src="cestlavie.png" alt="C'est La Vie" class="shop-portrait">
+                    <h3>C'EST LA VIE</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">195 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="cyrus" data-price="160">
+                    <img src="cyrus.png" alt="Cyrus" class="shop-portrait">
+                    <h3>CYRUS</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">160 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="kc" data-price="170">
+                    <img src="kc.png" alt="KC" class="shop-portrait">
+                    <h3>KC</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">170 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- C_11 added to shop -->
+                <div class="shop-item" data-character="c11" data-price="175">
+                    <img src="c11.png" alt="C_11" class="shop-portrait">
+                    <h3>C_11</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">175 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- NULL (██████) added to shop for 0 credits -->
+                <div class="shop-item" data-character="null" data-price="499">
+                    <img src="null.png" alt="██████" class="shop-portrait">
+                    <h3>██████</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">499 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- HOWL added to shop -->
+                <div class="shop-item" data-character="howl" data-price="175">
+                    <img src="howl.png" alt="Howl" class="shop-portrait">
+                    <h3>HOWL</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">175 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="maturity" data-price="190">
+                    <img src="maturity.png" alt="Maturity" class="shop-portrait">
+                    <h3>MATURITY</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">190 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="knight" data-price="240">
+                    <img src="knight.png" alt="The Knight" class="shop-portrait">
+                    <h3>THE KNIGHT</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">240 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="sally" data-price="155">
+                    <img src="sally.png" alt="Sally" class="shop-portrait">
+                    <h3>SALLY</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">155 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="blitz" data-price="260">
+                    <img src="blitz.png" alt="Blitz" class="shop-portrait">
+                    <h3>BLITZ</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">260 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="dragon" data-price="275">
+                    <img src="dragon.png" alt="Dragon" class="shop-portrait">
+                    <h3>DRAGON</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">275 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="reflection" data-price="285">
+                    <img src="reflection.png" alt="Reflection" class="shop-portrait">
+                    <h3>REFLECTION</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">285 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+                <div class="shop-item" data-character="wachi" data-price="384">
+                    <img src="wachi.png" alt="Wachi" class="shop-portrait">
+                    <h3>WACHI</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">384 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- Finn and Tao added to shop -->
+                <div class="shop-item" data-character="finn" data-price="120">
+                    <img src="finland.png" alt="Finn" class="shop-portrait">
+                    <h3>FINN</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">120 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="tao" data-price="450">
+                    <img src="tao.png" alt="Tao" class="shop-portrait">
+                    <h3>TAO</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">450 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="doctor" data-price="500">
+                    <img src="doctor.png" alt="The Doctor" class="shop-portrait">
+                    <h3>THE DOCTOR</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">500 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="vice" data-price="199">
+                    <img src="vice.png" alt="Vice" class="shop-portrait">
+                    <h3>VICE</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">198.7 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="judgement" data-price="201">
+                    <img src="judgement.png" alt="Judgement" class="shop-portrait">
+                    <h3>JUDGEMENT</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">201 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="p" data-price="371">
+                    <img src="p.png" alt="P" class="shop-portrait">
+                    <h3>P</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">371 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="zero" data-price="333">
+                    <img src="zero.png" alt="Zero" class="shop-portrait">
+                    <h3>ZERO</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">333 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="vesper" data-price="220">
+                    <img src="vesper.png" alt="Vesper" class="shop-portrait">
+                    <h3>VESPER</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">220 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="lavender" data-price="170">
+                    <img src="lavender.png" alt="Lavender" class="shop-portrait">
+                    <h3>LAVENDER</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">170 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="pete" data-price="210">
+                    <img src="pete.png" alt="Pete" class="shop-portrait">
+                    <h3>PETE</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">210 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="william" data-price="230">
+                    <img src="william.png" alt="William" class="shop-portrait">
+                    <h3>WILLIAM</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">230 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="eteled" data-price="265">
+                    <img src="eteled.png" alt="eteleD" class="shop-portrait">
+                    <h3>ETELED</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">265 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="fossil" data-price="192">
+                    <img src="fossil.png" alt="Fossil" class="shop-portrait">
+                    <h3>FOSSIL</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">192 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="xander" data-price="350">
+                    <img src="xander.png" alt="Xander" class="shop-portrait">
+                    <h3>XANDER</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">350 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="awareness" data-price="500">
+                    <img src="awareness.png" alt="Awareness" class="shop-portrait">
+                    <h3>AWARENESS</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">500 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="drew" data-price="130">
+                    <img src="drew.png" alt="Drew" class="shop-portrait">
+                    <h3>DREW</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">130 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="eternal" data-price="220">
+                    <img src="eternal.png" alt="Eternal" class="shop-portrait">
+                    <h3>ETERNAL</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">220 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="thalia" data-price="240">
+                    <img src="thalia.png" alt="Thalia" class="shop-portrait">
+                    <h3>THALIA</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">240 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <div class="shop-item" data-character="zed" data-price="140">
+                    <img src="zed.png" alt="Zed" class="shop-portrait">
+                    <h3>ZED</h3>
+                    <div class="level-display">Level 1</div>
+                    <div class="price">140 Credits</div>
+                    <button class="buy-button">BUY</button>
+                </div>
+
+                <!-- Higher-Plane Characters (special shop behavior: FEELING LUCKY? randomized free/infinite) -->
+                <div class="shop-item" data-character="martial-artist" data-price="900" data-higher-plane="true">
+                    <img src="martial-artist.png" alt="Martial Artist" class="shop-portrait">
+                    <h3>MARTIAL ARTIST</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="ayako" data-price="900" data-higher-plane="true">
+                    <img src="ayako.png" alt="Ayako" class="shop-portrait">
+                    <h3>AYAKO</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="niyo" data-price="900" data-higher-plane="true">
+                    <img src="niyo.png" alt="Niyo" class="shop-portrait">
+                    <h3>NIYO</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="feathers" data-price="900" data-higher-plane="true">
+                    <img src="feathers.png" alt="Feathers" class="shop-portrait">
+                    <h3>FEATHERS</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="broken" data-price="900" data-higher-plane="true">
+                    <img src="broken.png" alt="Broken" class="shop-portrait">
+                    <h3>BROKEN</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="cathy" data-price="900" data-higher-plane="true">
+                    <img src="cathy.png" alt="Cathy" class="shop-portrait">
+                    <h3>CATHY</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="goldie" data-price="900" data-higher-plane="true">
+                    <img src="goldie.png" alt="Goldie" class="shop-portrait">
+                    <h3>GOLDIE</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="alex" data-price="900" data-higher-plane="true">
+                    <img src="alex.png" alt="Alex" class="shop-portrait">
+                    <h3>ALEX</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="fyre" data-price="900" data-higher-plane="true">
+                    <img src="fyre.png" alt="Fyre" class="shop-portrait">
+                    <h3>FYRE</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="jaquavius" data-price="900" data-higher-plane="true">
+                    <img src="jaquavius.png" alt="Jaquavius" class="shop-portrait">
+                    <h3>JAQUAVIUS</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+                <div class="shop-item" data-character="UPRISER" data-price="900" data-higher-plane="true">
+                    <img src="upriser.png" alt="UPRISER" class="shop-portrait">
+                    <h3>UPRISER</h3>
+                    <div class="level-display">Higher Plane</div>
+                    <div class="price">FEELING LUCKY?</div>
+                    <button class="buy-button">FEELING LUCKY?</button>
+                </div>
+
+            </div>
+        </div>
+        <button id="back-button" class="game-button" style="margin-top: 1.5rem;">BACK TO MENU</button>
+    </div>
+
+    <div id="battle-screen" class="screen">
+        <div class="battle-ui">
+            <div class="player-section">
+                <div class="health-bar-container">
+                    <div class="health-bar">
+                        <div class="health-fill" id="player-health"></div>
+                    </div>
+                    <span class="health-text">100/100</span>
+                </div>
+                <div class="character-display">
+                    <img id="player-sprite" class="battle-sprite" src="" alt="Player">
+                    <h3 id="player-name"></h3>
+                </div>
+            </div>
+
+            <div class="vs-text">VS</div>
+
+            <div class="enemy-section">
+                <div class="health-bar-container">
+                    <div class="health-bar">
+                        <div class="health-fill" id="enemy-health"></div>
+                    </div>
+                    <span class="health-text">100/100</span>
+                </div>
+                <div class="character-display">
+                    <img id="enemy-sprite" class="battle-sprite" src="" alt="Enemy">
+                    <h3 id="enemy-name"></h3>
+                </div>
+            </div>
+        </div>
+
+        <div id="ability-panel" class="ability-panel">
+            <h3>Choose Your Action</h3>
+            <div class="abilities-grid">
+                <button class="ability-btn" data-ability="0"></button>
+                <button class="ability-btn" data-ability="1"></button>
+                <button class="ability-btn" data-ability="2"></button>
+                <button class="ability-btn" data-ability="3"></button>
+            </div>
+        </div>
+
+        <div id="battle-log" class="battle-log"></div>
+    </div>
+
+    <!-- Preload image element (hidden) so sunlight.png is loaded/cached early but not visible -->
+    <img id="preload-sunlight" src="sunlight.png" alt="" aria-hidden="true" style="width:0;height:0;position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;">
+
+    <script>
+        (function(){
+            // Cache-busting loader: append current timestamp to module URLs so browser loads latest files
+            const ts = Date.now();
+
+            // Helper: track assets to wait for (CSS + modules)
+            const toLoad = [];
+            const loaded = new Set();
+
+            // Reference to overlay element
+            const overlay = document.getElementById('loading-overlay');
+
+            // Also append the same timestamp to the stylesheet href so CSS is cache-busted too and wait for its load event
+            try {
+                const cssLink = document.querySelector('link[rel="stylesheet"]');
+                if (cssLink) {
+                    // Preserve original href filename but append timestamp query
+                    const base = cssLink.getAttribute('href').split('?')[0];
+                    const newHref = base + '?t=' + ts;
+                    cssLink.setAttribute('href', newHref);
+
+                    // create a load watcher for CSS
+                    toLoad.push('css');
+                    cssLink.addEventListener('load', () => {
+                        loaded.add('css');
+                        checkAllLoaded();
+                    });
+                    // CSS onerror fallback - still proceed
+                    cssLink.addEventListener('error', () => {
+                        loaded.add('css');
+                        checkAllLoaded();
+                    });
+                }
+            } catch (e) { /* ignore if DOM access fails */ }
+
+            // Modules we want to load and wait for
+            const modules = ['game.js', 'bio.js', 'effectshow.js'];
+            modules.forEach(path => {
+                toLoad.push(path);
+                const s = document.createElement('script');
+                s.type = 'module';
+                s.src = path + '?t=' + ts;
+                s.defer = false;
+
+                // mark loaded when script load event fires (or on error to avoid hanging)
+                s.addEventListener('load', () => {
+                    loaded.add(path);
+                    checkAllLoaded();
+                });
+                s.addEventListener('error', () => {
+                    // Even if a module fails to load (e.g. blocked), we remove the overlay so the page isn't stuck
+                    loaded.add(path);
+                    checkAllLoaded();
+                });
+
+                document.body.appendChild(s);
+            });
+
+            // Safety: also wait for window load for images/fonts to settle; include as a token
+            toLoad.push('windowLoad');
+            window.addEventListener('load', () => {
+                loaded.add('windowLoad');
+                checkAllLoaded();
+            });
+
+            // Also set a hard timeout (10s) to remove overlay even if something never fired
+            const HARD_TIMEOUT = 10000;
+            setTimeout(() => {
+                // mark everything as loaded to avoid permanently blocking
+                toLoad.forEach(t => loaded.add(t));
+                checkAllLoaded(true);
+            }, HARD_TIMEOUT);
+
+            function checkAllLoaded(force = false) {
+                // If overlay already removed, noop
+                if (!overlay || overlay.dataset.removed === '1') return;
+
+                // If force, or all tokens in toLoad are present in loaded, remove overlay
+                const allSatisfied = toLoad.every(token => loaded.has(token));
+                if (allSatisfied || force) {
+                    // fade out overlay gracefully
+                    overlay.style.transition = 'opacity 380ms ease';
+                    overlay.style.opacity = '0';
+                    overlay.dataset.removed = '1';
+                    // after fade remove from DOM and restore pointer interactions
+                    setTimeout(() => {
+                        try {
+                            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                        } catch (e) { /* ignore */ }
+                    }, 420);
+                }
+            }
+        })();
+    </script>
+
+    <script>
+    (function(){
+        function base64ToBits(b64) {
+            let bits = '';
+            for (let i = 0; i < b64.length; i++) {
+                const code = b64.charCodeAt(i);
+                bits += code.toString(2).padStart(8, '0');
+            }
+            return bits;
+        }
+        function bitsToBase64(bits) {
+            // normalize input to only 0/1 chars
+            bits = String(bits).replace(/[^01]/g, '');
+            if (!bits || bits.length % 8 !== 0) {
+                throw new Error('Invalid bits length');
+            }
+
+            // Convert every 8 bits to a byte (character)
+            let byteStr = '';
+            for (let i = 0; i < bits.length; i += 8) {
+                const byte = bits.slice(i, i + 8);
+                byteStr += String.fromCharCode(parseInt(byte, 2));
+            }
+
+            // Now base64-encode the binary string.
+            // Use btoa which expects a binary string where each char code is a byte (0..255).
+            // Return the base64 string so callers can atob() it if needed.
+            try {
+                return btoa(byteStr);
+            } catch (e) {
+                // In environments where btoa may throw for high-char codes, fallback to a safe encoder
+                let binary = '';
+                for (let i = 0; i < byteStr.length; i++) {
+                    binary += String.fromCharCode(byteStr.charCodeAt(i) & 0xff);
+                }
+                return btoa(binary);
+            }
+        }
+
+        function decodePastedSave(input) {
+            input = String(input || '');
+            const trimmed = input.trim();
+
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                return trimmed;
+            }
+
+            try {
+                if (/^[01\s]+$/.test(trimmed) && trimmed.replace(/\s/g,'').length % 8 === 0) {
+                    const b64FromBits = bitsToBase64(trimmed.replace(/\s/g,''));
+                    try {
+                        const json = atob(b64FromBits);
+                        JSON.parse(json);
+                        return json;
+                    } catch (e) {
+                        try {
+                            JSON.parse(b64FromBits);
+                            return b64FromBits;
+                        } catch (ee) { /* fallthrough */ }
+                    }
+                }
+
+                try {
+                    const dec = atob(trimmed);
+                    JSON.parse(dec);
+                    return dec;
+                } catch (e) { /* not base64-decoded JSON */ }
+            } catch (e) { /* ignore */ }
+
+            const onlyBits = trimmed.replace(/[^01]/g, '');
+            if (onlyBits.length >= 8) {
+                const padded = onlyBits.padEnd(Math.ceil(onlyBits.length/8)*8, '0');
+                try {
+                    const b64FromBits = bitsToBase64(padded);
+                    const dec = atob(b64FromBits);
+                    JSON.parse(dec);
+                    return dec;
+                } catch (e) { /* ignore */ }
+            }
+
+            throw new Error('Could not decode pasted data');
+        }
+
+        const copyBtn = document.getElementById('copy-save-btn');
+        const restoreBtn = document.getElementById('restore-save-btn');
+        const msg = document.getElementById('update-save-msg');
+
+        function showTempMessage(text, timeout=2200){
+            if(!msg) return;
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(()=>{ msg.style.display = 'none'; }, timeout);
+        }
+
+        function getSaveJsonString() {
+            try {
+                const raw = localStorage.getItem('unbrokenSave');
+                if (raw && raw.length > 0) return raw;
+            } catch (e){}
+            return JSON.stringify({ credits:0, unlockedCharacters:[], purchasedCharacters:[], characterLevels:{} });
+        }
+
+        function refreshRestoreVisibility() {
+            let hasSave = false;
+            try {
+                const s = localStorage.getItem('unbrokenSave');
+                hasSave = !!s;
+            } catch (e) { hasSave = false; }
+
+            if (!restoreBtn) return;
+
+            // If a save already exists, offer a "REWRITE DATA" action (overwrite current save).
+            // If no save exists, offer "RESTORE OLD DATA" (import from external bits/base64/JSON).
+            if (hasSave) {
+                restoreBtn.textContent = 'REWRITE DATA';
+                restoreBtn.style.display = 'inline-block';
+            } else {
+                restoreBtn.textContent = 'RESTORE OLD DATA';
+                restoreBtn.style.display = 'inline-block';
+            }
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    const json = getSaveJsonString();
+                    const b64 = btoa(json);
+                    const bits = base64ToBits(b64);
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(bits);
+                        showTempMessage('Save data copied to clipboard (bits).');
+                        copyBtn.textContent = 'COPIED';
+                        setTimeout(()=> copyBtn.textContent = 'COPY SAVE DATA', 1400);
+                        refreshRestoreVisibility();
+                        return;
+                    } else {
+                        const did = window.prompt('Copy the following save-bits string (CTRL/CMD+C):', bits);
+                        if (did !== null) {
+                            showTempMessage('If you pasted it somewhere, good — saved to clipboard (fallback).');
+                        }
+                    }
+                } catch (e) {
+                    console.error('Copy failed', e);
+                    showTempMessage('Copy failed.');
+                }
+            });
+        }
+
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', async () => {
+                try {
+                    const pasted = window.prompt('Paste your save data here (bits / base64 / JSON):');
+                    if (!pasted) return;
+                    let decodedJson;
+                    try {
+                        decodedJson = decodePastedSave(pasted);
+                    } catch (err) {
+                        alert('Could not decode the pasted data. Make sure you pasted the bits string or a base64/JSON export.');
+                        return;
+                    }
+
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(decodedJson);
+                    } catch (err) {
+                        alert('Decoded data is not valid JSON.');
+                        return;
+                    }
+
+                    try {
+                        localStorage.setItem('unbrokenSave', JSON.stringify(parsed));
+                    } catch (e) {
+                        alert('Failed to save data to localStorage.');
+                        return;
+                    }
+
+                    showTempMessage('Save restored successfully! Reloading...');
+                    setTimeout(()=> location.reload(), 650);
+                } catch (e) {
+                    console.error('Restore failed', e);
+                    alert('Restore failed unexpectedly.');
+                }
+            });
+        }
+
+        try { refreshRestoreVisibility(); } catch (e) {}
+        window.addEventListener('storage', function(e){
+            if (e.key === 'unbrokenSave') refreshRestoreVisibility();
+        });
+    })();
+    </script>
+
+    <script>
+    (function(){
+        // Map data-src (file names) to motif labels
+        const motifs = {
+            "One Side In Two Different Coins.mp3": "Motifs: Sunlight's Jingle, Moonlight's Jingle A",
+            "Two Best Friends.mp3": "Motifs: Sunlight's Jingle",
+            "House Arrest.mp3": "Motifs: Moonlight's Jingle A",
+            "Moonshine.mp3": "Motifs: Moonlight's Jingle A",
+            "The Call Of The Moon.mp3": "Motifs: Moonlight's Jingle A, Moonlight's Jingle B",
+            "Spare Them The Rod (4).mp3": "Motifs: Moonlight's Jingle B, Lily",
+            "Spare Them The Rod (Alt).mp3": "Motifs: Lily",
+            "A Promise.mp3": "Motifs: Nightlight's Jingle",
+            "Fallen Angel.mp3": "Motifs: Fallen Angel",
+            "Back Again.mp3": "Motifs: Fallen Angel",
+            "Make Your Mark.mp3": "Motifs: Make Your Mark",
+            "Diagraphephobia.mp3": "Motifs: Make Your Mark",
+            "Freedom.mp3": "Motifs: Freedom",
+            "Darkness Constricts Me.mp3": "Motifs: Freedom",
+            "Anticipation (4).mp3": "Motifs: Anticipation",
+            "Anticipation (Luna Mix).mp3": "Motifs: Anticipation, Sunlight's Jingle, Moonlight's Jingle A",
+            "Redemption.mp3": "This song was scrapped because I didn't like it, but it'll come back in a future update!",
+            "'Till The Void Do Us Part.mp3": "Motifs: Sunlight's Jingle, Moonlight's Jingle A"
+        };
+
+        // Helper to create motif label element
+        function createMotifEl(text) {
+            const el = document.createElement('div');
+            el.className = 'music-motif';
+            // inline styles to avoid requiring CSS file changes
+            el.style.fontSize = '0.78rem';
+            el.style.color = '#FFA500';
+            el.style.marginTop = '0.2rem';
+            el.style.fontWeight = '700';
+            el.style.letterSpacing = '0.04em';
+            el.textContent = text;
+            return el;
+        }
+
+        // When DOM ready (or immediately if already ready), append motif labels
+        function applyMotifs() {
+            const list = document.getElementById('music-list');
+            if (!list) return;
+            const items = Array.from(list.querySelectorAll('.music-item'));
+            items.forEach(item => {
+                // prevent duplicate labels if script runs multiple times
+                if (item.querySelector('.music-motif')) return;
+
+                // try to find the play button's data-src attribute
+                const btn = item.querySelector('.play-music');
+                const src = btn ? btn.dataset.src : null;
+                const label = (src && motifs[src]) ? motifs[src] : 'Motifs: none';
+                // append label inside the left side container if present, else append at end of item
+                // many items use a simple structure: left div then play button; find the left div (first child text container)
+                let container = item.querySelector('div') || item;
+                // append motif element
+                const motifEl = createMotifEl(label);
+                // ensure motif is visually below the track name
+                container.appendChild(motifEl);
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyMotifs);
+        } else {
+            applyMotifs();
+        }
+    })();
+    </script>
+</body>
+</html>
