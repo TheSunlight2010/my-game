@@ -625,7 +625,7 @@ export default function startDean(onReload = false) {
                     modal.style.left = '0';
                     modal.style.top = '0';
                     modal.style.width = '100%';
-                    modal.style.height = '100dvh';
+                    modal.style.maxHeight = '100dvh';
                     modal.style.zIndex = '28000';
                     modal.style.display = 'flex';
                     modal.style.alignItems = 'center';
@@ -638,6 +638,7 @@ export default function startDean(onReload = false) {
                     modal.style.gap = '0.8rem';
                     modal.style.padding = '1rem';
                     modal.style.boxSizing = 'border-box';
+                    modal.style.overflowY = 'auto'; /* allow internal scrolling on small screens */
 
                     const box = document.createElement('div');
                     box.style.background = 'rgba(10,10,10,0.98)';
@@ -898,7 +899,7 @@ export default function startDean(onReload = false) {
                     modal.style.left = '0';
                     modal.style.top = '0';
                     modal.style.width = '100%';
-                    modal.style.height = '100dvh';
+                    modal.style.maxHeight = '100dvh';
                     modal.style.zIndex = '28000';
                     modal.style.display = 'flex';
                     modal.style.alignItems = 'center';
@@ -911,6 +912,7 @@ export default function startDean(onReload = false) {
                     modal.style.gap = '0.6rem';
                     modal.style.padding = '1rem';
                     modal.style.boxSizing = 'border-box';
+                    modal.style.overflowY = 'auto'; /* fit on small viewports */
 
                     const panel = document.createElement('div');
                     panel.style.background = 'rgba(10,10,10,0.98)';
@@ -1241,7 +1243,7 @@ export default function startDean(onReload = false) {
                     modal.style.left = '0';
                     modal.style.top = '0';
                     modal.style.width = '100%';
-                    modal.style.height = '100dvh';
+                    modal.style.maxHeight = '100dvh';
                     modal.style.zIndex = '28000';
                     modal.style.display = 'flex';
                     modal.style.alignItems = 'center';
@@ -1254,6 +1256,7 @@ export default function startDean(onReload = false) {
                     modal.style.gap = '0.8rem';
                     modal.style.padding = '1rem';
                     modal.style.boxSizing = 'border-box';
+                    modal.style.overflowY = 'auto'; /* ensure modal content can scroll */
 
                     const box = document.createElement('div');
                     box.style.background = 'rgba(10,10,10,0.98)';
@@ -1541,7 +1544,7 @@ export default function startDean(onReload = false) {
                 modal.style.left = '0';
                 modal.style.top = '0';
                 modal.style.width = '100%';
-                modal.style.height = '100dvh';
+                modal.style.maxHeight = '100dvh';
                 modal.style.zIndex = '28000';
                 modal.style.display = 'flex';
                 modal.style.alignItems = 'center';
@@ -1554,6 +1557,7 @@ export default function startDean(onReload = false) {
                 modal.style.gap = '0.8rem';
                 modal.style.padding = '1rem';
                 modal.style.boxSizing = 'border-box';
+                modal.style.overflowY = 'auto'; /* keep modal inside viewport with scrolling */
 
                 const box = document.createElement('div');
                 box.style.background = 'rgba(10,10,10,0.98)';
@@ -1718,19 +1722,47 @@ export default function startDean(onReload = false) {
         });
 
         healBtn.addEventListener('click', () => {
-            if (!state.playerTurn || state.disabled) return;
-            state.disabled = true;
-            // heal for 24-36 but capped to max (buffed)
-            const heal = 24 + Math.floor(Math.random() * 13);
-            state.playerHP = Math.min(state.playerMax, state.playerHP + heal);
-            appendLog(`You restore ${heal} HP.`);
-            updateUI();
+            try {
+                // guard: only allow when it's player's turn and not disabled
+                if (!state.playerTurn || state.disabled) return;
 
-            // pass to dean
-            state.playerTurn = false;
-            atkBtn.disabled = true;
-            healBtn.disabled = true;
-            setTimeout(deanAct, 900 + Math.random() * 700);
+                // mark input disabled to prevent double clicks
+                state.disabled = true;
+
+                // heal for 24-36 but capped to max (buffed)
+                const heal = 24 + Math.floor(Math.random() * 13);
+                state.playerHP = Math.min(state.playerMax, state.playerHP + heal);
+
+                // log and update UI immediately
+                appendLog(`You restore ${heal} HP.`);
+                updateUI();
+
+                // prepare to hand control to Dean
+                state.playerTurn = false;
+                atkBtn.disabled = true;
+                healBtn.disabled = true;
+
+                // schedule Dean's response; wrap in try so any error re-enables controls
+                setTimeout(() => {
+                    try {
+                        deanAct();
+                    } catch (err) {
+                        console.error('deanAct failed after heal:', err);
+                        // safely restore player control if enemy action fails
+                        state.playerTurn = true;
+                        state.disabled = false;
+                        atkBtn.disabled = false;
+                        healBtn.disabled = false;
+                    }
+                }, 900 + Math.random() * 700);
+            } catch (e) {
+                console.error('Heal button handler error', e);
+                // ensure controls are re-enabled on unexpected errors
+                state.playerTurn = true;
+                state.disabled = false;
+                atkBtn.disabled = false;
+                healBtn.disabled = false;
+            }
         });
 
 
@@ -1840,8 +1872,37 @@ export default function startDean(onReload = false) {
                                 // reload the page to retry; this will also reset overlays and re-run startup logic
                                 try { location.reload(); } catch (e) { /* ignore */ }
                             });
-                            // append the button under the typed text
+                            // Give Up button: clear deanPending then reload
+                            const giveUpBtn = document.createElement('button');
+                            giveUpBtn.textContent = 'GIVE UP';
+                            giveUpBtn.className = 'game-button';
+                            giveUpBtn.style.marginTop = '0.6rem';
+                            giveUpBtn.style.padding = '0.45rem 0.8rem';
+                            giveUpBtn.style.zIndex = '30001';
+                            giveUpBtn.style.background = 'linear-gradient(45deg,#FF6B6B,#C62828)';
+                            giveUpBtn.addEventListener('click', () => {
+                                try {
+                                    // clear the deanPending flag from the persisted save if present
+                                    const raw = localStorage.getItem('unbrokenSave');
+                                    if (raw) {
+                                        const obj = JSON.parse(raw);
+                                        if (obj && obj.deanPending) {
+                                            delete obj.deanPending;
+                                            // also clear deanRolls so repeat triggers are reset
+                                            if ('deanRolls' in obj) delete obj.deanRolls;
+                                            localStorage.setItem('unbrokenSave', JSON.stringify(obj));
+                                        }
+                                    }
+                                } catch (e) { /* ignore */ }
+                                // remove overlay and reload to a clean state
+                                try {
+                                    if (cut && cut.parentNode) cut.parentNode.removeChild(cut);
+                                } catch (e) {}
+                                try { location.reload(); } catch (e) {}
+                            });
+                            // append the buttons under the typed text
                             cut.appendChild(retryBtn);
+                            cut.appendChild(giveUpBtn);
                         } catch (e) {
                             // if any error creating the button happens, silently ignore and leave the overlay
                             console.error('Failed to create retry button', e);
@@ -1989,4 +2050,4 @@ export default function startDean(onReload = false) {
             console.error('Dean sequence error', e);
         }
     })();
-}
+            }
