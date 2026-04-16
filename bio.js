@@ -45,19 +45,7 @@ function collectAllCharacterEntries() {
         }
     });
 
-    // Add a non-playable informational-only entry for Mr. Score (no bio provided)
-    entries.push({
-        key: 'mr-score',
-        name: 'Mr. Score',
-        sprite: 'mr-score.png',
-        data: {
-            name: 'Mr. Score',
-            sprite: 'mr-score.png',
-            bio: "",
-            classification: 'PARASITE',
-            informationalOnly: true
-        }
-    });
+
 
     return entries;
 }
@@ -220,18 +208,7 @@ function showCharacterBio(key, displayName) {
         };
     }
 
-    // Provide a fallback informational Mr. Score entry so his image appears in the bio modal even if absent from character tables.
-    if (key === 'mr-score') {
-        charData = {
-            name: 'Mr. Score',
-            sprite: 'mr-score.png',
-            woundedSprite: 'mr-score.png',
-            bio: (charData && charData.bio) ? charData.bio : '',
-            classification: (charData && charData.classification) ? charData.classification : 'PARASITE',
-            informationalOnly: true,
-            author: (charData && charData.author) ? charData.author : 'The Sunlight'
-        };
-    }
+
 
     const bioText = charData.bio || 'insert bio here';
 
